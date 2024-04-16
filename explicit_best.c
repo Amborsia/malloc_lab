@@ -23,11 +23,11 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "week6-02",
+    "8th",
     /* First member's full name */
-    " ktkdgh ",
+    "남홍근, 김태훈, 박진용",
     /* First member's email address */
-    " ktkdgh@skku.edu",
+    " ghdrms1220@gmail.com",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */
@@ -49,9 +49,6 @@ team_t team = {
 /* Given ptr in free list, get next and previous ptr in the list */
 #define NEXT(bp) (*(char **)(bp + WSIZE))
 #define PREV(bp) (*(char **)(bp))
-/* Puts pointers in the next and previous elements of free list */
-#define SET_NEXT_PTR(bp, qp) (NEXT(bp) = qp)
-#define SET_PREV_PTR(bp, qp) (PREV(bp) = qp)
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);

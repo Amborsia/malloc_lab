@@ -25,7 +25,7 @@ team_t team = {
     /* Team name */
     "8th",
     /* First member's full name */
-    "남홍근, 김태훈, 박진용",
+    " HongGeun Nam ",
     /* First member's email address */
     " ghdrms1220@gmail.com",
     /* Second member's full name (leave blank if none) */
@@ -34,7 +34,7 @@ team_t team = {
     ""};
 #define WSIZE 4
 #define DSIZE 8
-#define CHUNKSIZE (1 << 12)
+#define CHUNKSIZE (1 << 7)
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define PACK(size, alloc) ((size) | (alloc))
 #define GET(p) (*(unsigned int *)(p))
@@ -168,30 +168,20 @@ void mm_free(void *bp)
 static void *find_fit(size_t asize)
 {
     int class = get_class(asize);
-    void *bp = NULL;
-    size_t min_size = ~0;
-
-    while (class < SEGREGATED_SIZE)
+    void *bp = GET_ROOT(class);
+    while (class < SEGREGATED_SIZE) // 현재 탐색하는 클래스가 범위 안에 있는 동안 반복
     {
-        void *current_bp = GET_ROOT(class);
-        while (current_bp != NULL)
+        bp = GET_ROOT(class);
+        while (bp != NULL)
         {
-            size_t current_size = GET_SIZE(HDRP(current_bp));
-            if (current_size >= asize && current_size < min_size)
-            {
-                min_size = current_size;
-                bp = current_bp;
-            }
-            current_bp = GET_SUCC(current_bp);
+            if ((asize <= GET_SIZE(HDRP(bp)))) // 적합한 사이즈의 블록을 찾으면 반환
+                return bp;
+            bp = GET_SUCC(bp); // 다음 가용 블록으로 이동
         }
-        if (bp != NULL)
-            break;
         class += 1;
     }
-
-    return bp;
+    return NULL;
 }
-
 /*
  * place - 할당할 크기를 담을 수 있는 블록을 분할 해줌
  *         분할 해서 뒤에 공간은 가용 공간으로 만들어줌, 내부 단편화를 줄여줌

@@ -57,11 +57,11 @@
 
 team_t team = {
     /* Team name */
-    "duile",
+    "8th",
     /* First member's full name */
-    "Duile",
+    "남홍근, 김태훈, 박진용",
     /* First member's email address */
-    "https://www.cnblogs.com/duile",
+    " ghdrms1220@gmail.com",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */

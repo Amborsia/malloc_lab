@@ -26,11 +26,11 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "week6-02",
+    "8th",
     /* First member's full name */
-    " ktkdgh ",
+    "남홍근, 김태훈, 박진용",
     /* First member's email address */
-    " ktkdgh@skku.edu",
+    " ghdrms1220@gmail.com",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */

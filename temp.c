@@ -55,19 +55,26 @@
 // 거기서 헤더를 읽어서 그만큼 앞으로 가면 다음 블록의 헤더 뒤에까지 갈 수 있게 된다.
 #define PREV_BLKP(bp) ((char *)(bp)-GET_SIZE(((char *)(bp)-DSIZE))) // bp는 우선 그대로 둔 상태에서 bp-DSIZE를 하면 이전 블록의 풋터가 나오는데 그 값만큼 bp를 빼주면 전에 헤더 다음으로 갈 수 있다.
 
+#define PREV(bp) (*(void **)(bp))         // 이전 블록의 bp
+#define NEXT(bp) (*(void **)(bp + WSIZE)) // 이후 블록의 bp
+
+void putFreeBlock(void *bp);
+void removeBlock(void *bp);
+
 team_t team = {
     /* Team name */
-    "8th",
+    "duile",
     /* First member's full name */
-    "남홍근, 김태훈, 박진용",
+    "Duile",
     /* First member's email address */
-    " ghdrms1220@gmail.com",
+    "https://www.cnblogs.com/duile",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */
     ""};
 
 static char *heap_listp;
+static char *free_listp;
 
 static void *coalesce(void *bp)
 {
@@ -75,13 +82,15 @@ static void *coalesce(void *bp)
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp))); // 자기 블럭의 풋터와 다음 블럭의 헤더 사이에 위치함. 이걸 통해서 다음 블럭의 가용여부를 확인하려고 하는것임.
     size_t size = GET_SIZE(HDRP(bp));                   // 현재 블럭의 사이즈를 확인하기 위해서 bp-WSIZE를 진행해줌.
 
-    if (prev_alloc && next_alloc)
-    { // case 1 - 이전과 다음 블록이 모두 할당 되어있는 경우, 현재 블록의 상태는 할당에서 가용으로 변경
-        // 이미 free에서 가용이 되어있어서 여기서는 free를 할 필요가 없음.
-        return bp;
-    }
-    else if (prev_alloc && !next_alloc)
-    {                                          // case2 - 이전 블록은 할당 상태, 다음 블록은 가용상태. 현재 블록은 다음 블록과 통합 됨.
+    // if (prev_alloc && next_alloc)
+    // { // case 1 - 이전과 다음 블록이 모두 할당 되어있는 경우, 현재 블록의 상태는 할당에서 가용으로 변경
+    //     // 이미 free에서 가용이 되어있어서 여기서는 free를 할 필요가 없음.
+    //     return bp;
+    // }
+    // else
+    if (prev_alloc && !next_alloc)
+    {
+        removeBlock(NEXT(bp));                 // case2 - 이전 블록은 할당 상태, 다음 블록은 가용상태. 현재 블록은 다음 블록과 통합 됨.
         size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 블록의 헤더를 보고 그 블록의 크기만큼 지금 블록의 사이즈에 추가한다.
         PUT(HDRP(bp), PACK(size, 0));          // 헤더 갱신
         PUT(FTRP(bp), PACK(size, 0));          // 푸터 갱신
@@ -89,6 +98,7 @@ static void *coalesce(void *bp)
     else if (!prev_alloc && next_alloc)
     { // case 3 - 이전 블록은 가용상태, 다음 블록은 할당 상태. 이전 블록은 현재 블록과 통합.
         // 여기는 전에 이전에 위치해있는 free상태의 것을 합쳐야해서 우선 풋터부터 size만큼 갱신해주게 됨.
+        removeBlock(PREV(bp));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         // PREV_BLKP를 통해서 이전 블록의 풋터 뒤로 이동, 거기서 값을 읽어서 bp를 이전 블록의 헤더 뒤로 이동시킴, 거기서 HDRP를 통해서 헤더 앞으로 bp를 옮겨서 거기에 값을 갱신해둠.
@@ -98,12 +108,15 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp);
     }
     else
-    {                                                                          // case 4- 이전 블록과 다음 블록 모두 가용상태. 이전,현재,다음 3개의 블록 모두 하나의 가용 블록으로 통합.
+    {
+        removeBlock(NEXT(bp));
+        removeBlock(PREV(bp));                                                 // case 4- 이전 블록과 다음 블록 모두 가용상태. 이전,현재,다음 3개의 블록 모두 하나의 가용 블록으로 통합.
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp))); // 이전 블록 헤더, 다음 블록 푸터 까지로 사이즈 늘리기
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));                               // 이전 블록의 헤더값에 사이즈 갱신
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));                               // 다음 블록의 푸터값에 사이즈 갱신
         bp = PREV_BLKP(bp);                                                    // bp를 이전 블록으로 잡음.
     }
+    putFreeBlock(bp);
     return bp;
 }
 static void *extend_heap(size_t words)
@@ -138,21 +151,49 @@ int mm_init(void)
     // Q. 초기 빈 heap을 왜 16으로 진행하는가?
     // A. WISE는 word크기를 나타내는 매크로이며, 최소한의 블록 크기를 유지하기 위해 초기 빈 힙은 적어도 16바이트 이상의 크기를 가져야함.
     // 할당이 제대로 이루어지는지 확인하고, 할당이 실패한 경우에는 -1을 반환한다.
-    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1)
+    if ((heap_listp = mem_sbrk(6 * WSIZE)) == (void *)-1)
     {
         return -1;
     }
     PUT(heap_listp, 0);                            // 초기 힙의 블록의 헤더, 0의 의미는 가용상태를 의미함
     PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1)); // 할당된 블록의 헤더를 설정, PACK(DSIZE,1)은 헤더를 패킹하는 매크로로 DSIZE는 더블워드(8바이트)를 나타내며 1은 할당 상태를 나타낸다.
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); // 세번째 워드에는 첫 번째 할당된 블록의 풋터를 설정함. 이 코드는 두번째 워드와 같은 값을 가지고 있음.
-    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     // 에필로그 플록 헤더를 만듦. 뒤로 밀리는 형태이다.
-    heap_listp += (2 * WSIZE);                     // 프롤로그블록의 중간 값을 가리키기 위해서 2*WSIZE값을 더해서 시작 위치를 변경해줌
-
+    PUT(heap_listp + (3 * WSIZE), NULL);           // NEXT
+    PUT(heap_listp + (4 * WSIZE), NULL);           // PREV
+    PUT(heap_listp + (5 * WSIZE), PACK(0, 1));     // 에필로그 플록 헤더를 만듦. 뒤로 밀리는 형태이다.
+    free_listp = heap_listp + DSIZE;
     // 이 함수를 호출하여 추가 메모리를 할당하고, 이 과정에서 초기 힙의 크기를 확장한다.
     // 첫번째 청크 사이즈를 할당하는 것
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
         return -1;
     return 0;
+}
+
+void putFreeBlock(void *bp)
+{
+    NEXT(bp) = free_listp;
+    PREV(free_listp) = bp;
+    PREV(bp) = NULL;
+    free_listp = bp;
+}
+
+void removeBlock(void *bp)
+{
+    if (bp == free_listp)
+    {
+        free_listp = NEXT(bp); // bp가 가용리스트의 첫번째일 경우 다음 위치값을 들고와야함
+        PREV(NEXT(bp)) = NULL;
+    }
+    else if (NEXT(bp) == NULL)
+    {
+        PREV(NEXT(bp)) = NULL;
+        PREV(bp) = NULL;
+    }
+    else
+    {
+        NEXT(PREV(bp)) = NEXT(bp);
+        PREV(NEXT(bp)) = PREV(bp);
+    }
 }
 
 // 블록을 반환하고 경계 태그 연결 사용 -> 상수 시간 안에 인접한 가용 블록들과 통합하는 함수들
@@ -167,7 +208,7 @@ void mm_free(void *bp)
 static void *find_fit(size_t asize)
 { // first fit 검색을 수행
     void *bp;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) // heap_listp출발, 헤더의 크기만큼, 다음블록의 헤더 다음까지 for문을 진행하면서,
+    for (bp = free_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT(bp)) // heap_listp출발, 헤더의 크기만큼, 다음블록의 헤더 다음까지 for문을 진행하면서,
     {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) // 이 블록이 가용 가능한지 확인하고, 내가 갖고 있는 asize를 담을 수 있으면
         {

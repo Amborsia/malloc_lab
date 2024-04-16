@@ -21,7 +21,7 @@
 // 각종 변수,함수 설정
 #define WSIZE 4             // word and header footer 사이즈를 byte로.
 #define DSIZE 8             // double word size를 byte로
-#define CHUNKSIZE (1 << 12) // 2의 12승인 4096을 표시 페이지 사이즈인 4KB를 의미
+#define CHUNKSIZE (1 << 11) // 2의 12승인 4096을 표시 페이지 사이즈인 4KB를 의미
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y)) // x랑 y중 큰 값 반환
 
@@ -57,11 +57,11 @@
 
 team_t team = {
     /* Team name */
-    "duile",
+    "8th",
     /* First member's full name */
-    "Duile",
+    "남홍근, 김태훈, 박진용",
     /* First member's email address */
-    "https://www.cnblogs.com/duile",
+    " ghdrms1220@gmail.com",
     /* Second member's full name (leave blank if none) */
     "",
     /* Second member's email address (leave blank if none) */
@@ -235,7 +235,7 @@ void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
         // 이 코드 자체가 인접한 8의 배수를 만들어주는 코드임
     }
     /* fit에 맞는 free 리스트를 찾는다.*/
-    if ((bp = find_fit(asize)) != NULL)
+    if ((bp = best_fit(asize)) != NULL)
     {
         place(bp, asize);
         return bp;
