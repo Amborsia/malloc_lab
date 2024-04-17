@@ -272,7 +272,18 @@ void *mm_realloc(void *ptr, size_t size)
         else
         {
             size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
+            size_t prev_alloc = GET_ALLOC(HDRP(PREV_BLKP(ptr)));
             size_t csize;
+
+            if (!prev_alloc && ((csize = old_size + GET_SIZE(HDRP(PREV_BLKP(ptr))))) >= new_size)
+            {
+                void *tmp = PREV_BLKP(ptr);
+                removeBlock(tmp);
+                memmove(tmp, ptr, old_size);
+                PUT(HDRP(tmp), PACK(csize, 1));
+                PUT(FTRP(tmp), PACK(csize, 1));
+                return tmp;
+            }
             if (!next_alloc && ((csize = old_size + GET_SIZE(HDRP(NEXT_BLKP(ptr))))) >= new_size)
             {
                 removeBlock(NEXT_BLKP(ptr));
@@ -324,19 +335,22 @@ int get_class(size_t size)
     if (size < 16) // 최소 블록 크기는 16바이트
         return -1; // 잘못된 크기
 
-    // 클래스별 최소 크기
+    // 클래스별 최소 크기를 저장하는 배열
     size_t class_sizes[SEGREGATED_SIZE];
     class_sizes[0] = 16;
 
-    // 주어진 크기에 적합한 클래스 검색
+    // 주어진 크기에 적합한 클래스를 찾습니다.
     for (int i = 0; i < SEGREGATED_SIZE; i++)
     {
+        // 클래스별 최소 크기를 설정합니다.
         if (i != 0)
             class_sizes[i] = class_sizes[i - 1] << 1;
+
+        // 주어진 크기가 해당 클래스의 최소 크기보다 작거나 같으면 해당 클래스를 반환합니다.
         if (size <= class_sizes[i])
             return i;
     }
 
-    // 주어진 크기가 8192바이트 이상인 경우, 마지막 클래스로 처리
+    // 주어진 크기가 8192바이트 이상인 경우, 마지막 클래스로 처리합니다.
     return SEGREGATED_SIZE - 1;
 }

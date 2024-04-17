@@ -61,10 +61,6 @@ team_t team = {
 #define NEXT(bp) (*(char **)(bp + WSIZE))
 #define PREV(bp) (*(char **)(bp))
 
-/* Puts pointers in the next and previous elements of free list */
-#define SET_NEXT_PTR(bp, qp) (NEXT(bp) = qp)
-#define SET_PREV_PTR(bp, qp) (PREV(bp) = qp)
-
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
@@ -268,6 +264,7 @@ void *mm_malloc(size_t size)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
+    // 요청 크기가 0 이하인 경우 해당 포인터를 해제하고 NULL을 반환합니다.
     if ((int)size <= 0)
     {
         mm_free(ptr);
@@ -275,32 +272,35 @@ void *mm_realloc(void *ptr, size_t size)
     }
     else
     {
-        size_t old_size = GET_SIZE(HDRP(ptr));
-        size_t new_size = size + (2 * WSIZE);
+        size_t old_size = GET_SIZE(HDRP(ptr)); // 이전 블록의 크기를 가져옵니다.
+        size_t new_size = size + (2 * WSIZE);  // 새로운 요청 크기를 설정합니다.
 
+        // 새로운 크기가 이전 크기보다 작거나 같다면 기존 포인터를 반환합니다.
         if (new_size <= old_size)
         {
             return ptr;
         }
         else
         {
-            size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
+            size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr))); // 다음 블록의 할당 여부를 확인합니다.
             size_t csize;
 
+            // 다음 블록이 가용 상태이고, 합쳐진 크기가 새로운 크기보다 크거나 같다면 기존 포인터를 반환합니다.
             if (!next_alloc && ((csize = old_size + GET_SIZE(HDRP(NEXT_BLKP(ptr))))) >= new_size)
             {
-                removeBlock(NEXT_BLKP(ptr));
-                PUT(HDRP(ptr), PACK(csize, 1));
-                PUT(FTRP(ptr), PACK(csize, 1));
-                return ptr;
+                removeBlock(NEXT_BLKP(ptr));    // 다음 블록을 가용 리스트에서 제거합니다.
+                PUT(HDRP(ptr), PACK(csize, 1)); // 합쳐진 블록의 헤더를 설정합니다.
+                PUT(FTRP(ptr), PACK(csize, 1)); // 합쳐진 블록의 푸터를 설정합니다.
+                return ptr;                     // 기존 포인터를 반환합니다.
             }
-            else
+            else // 새로운 크기로 할당할 공간이 부족하면
             {
+                // 새로운 메모리 블록을 할당하고 데이터를 복사합니다.
                 void *new_ptr = mm_malloc(new_size);
-                place(new_ptr, new_size);
-                memcpy(new_ptr, ptr, new_size);
-                mm_free(ptr);
-                return new_ptr;
+                place(new_ptr, new_size);       // 새로운 메모리 블록을 할당합니다.
+                memcpy(new_ptr, ptr, old_size); // 기존 데이터를 새로운 메모리 블록으로 복사합니다.
+                mm_free(ptr);                   // 기존 메모리 블록을 해제합니다.
+                return new_ptr;                 // 새로운 메모리 블록의 포인터를 반환합니다.
             }
         }
     }
