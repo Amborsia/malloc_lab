@@ -272,18 +272,7 @@ void *mm_realloc(void *ptr, size_t size)
         else
         {
             size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(ptr)));
-            size_t prev_alloc = GET_ALLOC(HDRP(PREV_BLKP(ptr)));
             size_t csize;
-
-            if (!prev_alloc && ((csize = old_size + GET_SIZE(HDRP(PREV_BLKP(ptr))))) >= new_size)
-            {
-                void *tmp = PREV_BLKP(ptr);
-                removeBlock(tmp);
-                memmove(tmp, ptr, old_size);
-                PUT(HDRP(tmp), PACK(csize, 1));
-                PUT(FTRP(tmp), PACK(csize, 1));
-                return tmp;
-            }
             if (!next_alloc && ((csize = old_size + GET_SIZE(HDRP(NEXT_BLKP(ptr))))) >= new_size)
             {
                 removeBlock(NEXT_BLKP(ptr));
